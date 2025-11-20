@@ -1,0 +1,75 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    # NixOS 24.11 に合わせた home-manager の release ブランチを使う
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+    unstablePkgs = import unstable { system = "x86_64-linux"; };
+
+    # NixOS 用ヘルパー
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        hostConfig
+
+        # ← NixOS に overlay を注入（claude-code が使えるようになる）
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+            "claude-code"
+          ];
+
+          # NixOS と home-manager で pkgs を共有
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  in {
+    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  };
+}

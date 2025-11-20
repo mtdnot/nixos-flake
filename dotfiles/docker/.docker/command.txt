@@ -1,0 +1,8 @@
+ docker run -it --rm -v /var/www/html/mtdnot/mtdnot-portfolio:/app/project --name claude-portfolio claude-code-env
+docker exec -it ennea-dev-meta sh -lc '
+  set -e
+  cd /app/project/mock-local-storage
+  INPUT="/app/project/operation/mock-local-storage.txt"
+  [ -f "$INPUT" ] || { echo "ERROR: $INPUT が見つかりません"; ls -al /app/project/operation; exit 1; }
+  claude --dangerously-skip-permissions < "$INPUT"
+'

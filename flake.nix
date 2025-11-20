@@ -1,0 +1,116 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+
+    # pkgsFor — missing in old version
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
+
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit unstablePkgs self; };
+
+      modules = [
+        hostConfig
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg:
+            builtins.elem (lib.getName pkg) [
+              "claude-code"
+            ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  in {
+
+    ########################################
+    ## Restored Docusaurus builder
+    ########################################
+    packages.x86_64-linux.docusaurusSite =
+    let
+      pkgs = pkgsFor "x86_64-linux";
+    in
+    pkgs.stdenv.mkDerivation {
+      pname = "docusaurus-site";
+      version = "1.0.0";
+
+      # Correct directory — not src = ./. !!!
+      src = ./docs-site;
+
+      buildInputs = [
+        pkgs.nodejs_20
+        pkgs.nodePackages.pnpm
+      ];
+
+      buildPhase = ''
+        pnpm install --frozen-lockfile
+        pnpm build
+      '';
+
+      installPhase = ''
+        mkdir -p $out
+        cp -r build/* $out/
+      '';
+    };
+
+    ########################################
+    ## Hosts
+    ########################################
+    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+      specialArgs = { inherit unstablePkgs self; };
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  };
+}

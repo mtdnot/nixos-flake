@@ -1,0 +1,157 @@
+{ config, lib, pkgs, modulesPath, self, ... }:
+
+{
+  # ハードウェア構成
+  imports = [
+    ./hardware-configuration.nix
+  ];
+
+  # Nix コマンド / flake 有効化
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # non-free パッケージ許可（元設定を継承）
+  nixpkgs.config.allowUnfree = true;
+
+  # バイナリ互換 (glibc まわり) - 元の設定を維持
+  programs.nix-ld.enable = true;
+
+  # ロケール・タイムゾーン（元どおり）
+  time.timeZone = "Asia/Tokyo";
+  i18n.defaultLocale = "ja_JP.UTF-8";
+
+  # IME 設定（無効化された状態で構造だけ維持）
+  i18n.inputMethod = {
+    type = "fcitx5";
+    enable = false;
+    fcitx5 = {
+      addons = with pkgs; [
+        fcitx5-mozc
+        fcitx5-gtk
+      ];
+    };
+  };
+
+  # ネットワーク（元設定ベース）
+#  networking.useDHCP = true;
+
+  # CUI でも NetworkManager で統一
+  networking.networkmanager.enable = true;
+  networking.firewall.allowedTCPPorts = [ 80 ];
+
+  # wpa_cli 用に元設定を残す（必要なら後で消す）
+#  networking.wireless.enable = true;
+#  networking.wireless.userControlled.enable = true;
+
+  # SSH (元設定を維持：root ログイン/パスワード許可)
+  # ※セキュリティ的にはあとで締めた方がいいが、
+  #   ここでは「元の挙動を壊さない」を優先して残す。
+  services.openssh = {
+    enable = true;
+    permitRootLogin = "yes";
+    passwordAuthentication = true;
+  };
+
+  # ブートローダ（元設定ベース）
+  boot.loader.systemd-boot.enable = false;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  boot.loader.grub.enable = true;
+  # 元の設定では `boot.loader.grub.device = "/dev/sda";`
+  # 24.11 以降は devices 推奨だが、互換のためそのまま残す
+  boot.loader.grub.device = "/dev/sda";
+
+  # ユーザー定義（元設定の mtdnot を CUI 用に移植）
+  users.users.mtdnot = {
+    isNormalUser = true;
+    home = "/home/mtdnot";
+    extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
+    # initialPassword は実運用上は意味が無くなっている可能性が高いので省略
+    # 必要なら `passwd mtdnot` で明示的に設定すべき。
+  };
+
+
+  # Apache Web Server
+  services.httpd = let
+    # Docusaurus のビルド成果物 (/nix/store/...-docusaurus-site)
+    docusaurusSite = self.packages.${config.system}.docusaurusSite;
+  in {
+    enable = true;
+
+    # SPA のために mod_rewrite を明示的に有効化
+    extraModules = [ "rewrite" ];
+
+    virtualHosts = {
+      # 必要なら localhost はテスト用に残す
+      "localhost" = {
+        documentRoot = "/var/www";
+        extraConfig = ''
+          DirectoryIndex index.html
+
+          <Directory "/var/www">
+            Require all granted
+            Options FollowSymLinks
+          </Directory>
+        '';
+      };
+
+      "mtdnot.dev" = {
+        # ルート / は /var/www を見る
+        documentRoot = "/var/www";
+
+        extraConfig = ''
+          DirectoryIndex index.html
+
+          <Directory "/var/www">
+            Require all granted
+            Options FollowSymLinks
+          </Directory>
+
+          # /docs を Docusaurus (/nix/store) に割り当てる
+          Alias /docs ${docusaurusSite}
+
+          <Directory "${docusaurusSite}">
+            Require all granted
+            Options FollowSymLinks
+
+            # --- Docusaurus SPA 用ルーティング ---
+            RewriteEngine On
+
+            # /docs 以下で「実ファイルでもディレクトリでもない」リクエスト
+            # → すべて index.html に内部リライト
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteCond %{REQUEST_FILENAME} !-d
+            RewriteRule ^ index.html [L]
+          </Directory>
+        '';
+      };
+    };
+  };
+
+
+
+
+
+  # CUI ホストなので GUI 関連は一旦全て「無指定（=デフォルト false）」にする：
+  # - services.xserver.enable
+  # - displayManager/lightdm
+  # - obs-studio, steam, VirtualBox host
+  # - 1password / 1password-gui
+  # - Hyprland
+  # - フォント設定
+  #
+  # これらは「nixos-gui」の方にモジュールとして切り出して載せ直すべき領域。
+  # ここでは OS の土台に関係するものだけを持たせる。
+
+  # CUI 側で最低限ほしいツール（OS レベル）
+  # それ以外の環境は home-manager 側で管理していく前提。
+  environment.systemPackages = with pkgs; [
+    git
+    tmux
+    htop
+    neofetch
+    zsh
+  ];
+
+  # NixOS 初期インストールバージョン
+  system.stateVersion = "24.11";
+}

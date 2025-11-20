@@ -1,0 +1,78 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+
+    # NixOS 24.11 に合わせた home-manager の release ブランチを使う
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, home-manager, darwin, ... }:
+  let
+    mkHome = { system, username, modules ? [] }: 
+      home-manager.lib.homeManagerConfiguration {
+        inherit system;
+        home.username = username;
+        home.homeDirectory = "/home/${username}";
+        modules = modules;
+        pkgs = import nixpkgs { inherit system; };
+      };
+  in {
+
+    # ================
+    # 1. NixOS GUI
+    # ================
+    nixosConfigurations.nixos-gui =
+      nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./hosts/nixos-gui/configuration.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.users.mtdnot = {
+              imports = [ ./modules/common/home.nix ];
+            };
+          }
+        ];
+      };
+
+    # ================
+    # 2. NixOS CUI
+    # ================
+    nixosConfigurations.nixos-cui =
+      nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./hosts/nixos-cui/configuration.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.users.mtdnot = {
+              imports = [ ./modules/common/home.nix ];
+            };
+          }
+        ];
+      };
+
+    # ==================
+    # 3. macOS (darwin)
+    # ==================
+    darwinConfigurations.mac =
+      darwin.lib.darwinSystem {
+        system = "aarch64-darwin"; # M系Mac。Intelなら x86_64-darwin
+        modules = [
+          ./hosts/mac/configuration.nix
+          home-manager.darwinModules.home-manager
+          {
+            home-manager.users.mtdnot = {
+              imports = [ ./modules/common/home.nix ];
+            };
+          }
+        ];
+      };
+  };
+}

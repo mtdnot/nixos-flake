@@ -1,0 +1,123 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+
+    # 共通 pkgs (x86_64-linux) – docusaurusSite で使う
+    pkgsX86 = import nixpkgs {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+
+      # self を渡す。httpd 側で self.packages を見るため。
+      specialArgs = { inherit unstablePkgs self; };
+
+      modules = [
+        hostConfig
+
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg:
+            builtins.elem (lib.getName pkg) [
+              "claude-code"
+            ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  in {
+    ###############################
+    # Docusaurus build artifact
+    ###############################
+    # ★ ここはあとで ./docs-site を作るまでビルドは失敗するが、
+    #   とりあえず定義だけ置いておく。
+    packages.x86_64-linux.docusaurusSite =
+      pkgsX86.stdenv.mkDerivation {
+        pname = "docusaurus-site";
+        version = "1.0.0";
+        src = ./docs-site;
+
+        buildInputs = [
+          pkgsX86.nodejs_20
+          pkgsX86.pnpm
+        ];
+
+        buildPhase = ''
+          pnpm install --frozen-lockfile
+          pnpm build
+        '';
+
+        installPhase = ''
+          mkdir -p $out
+          cp -r build/* $out/
+        '';
+      };
+
+    ###############################
+    # NixOS hosts
+    ###############################
+    nixosConfigurations.nixos-gui =
+      mkNixos ./hosts/nixos-gui/configuration.nix;
+
+    nixosConfigurations.nixos-cui =
+      mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    ###############################
+    # macOS host
+    ###############################
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+
+      specialArgs = { inherit unstablePkgs self; };
+
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  };
+}

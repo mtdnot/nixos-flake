@@ -1,0 +1,85 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+
+    # ★ unstable 側にも allowUnfree を渡す
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config = {
+        allowUnfree = true;
+        allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+          "claude-code"
+        ];
+      };
+    };
+
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        hostConfig
+
+        # stable 側 pkgs に overlay で claude-code を注入
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+            "claude-code"
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+
+      # ★ home-manager へ unstablePkgs を渡す
+      specialArgs = { inherit unstablePkgs; };
+    };
+
+  in {
+    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+      specialArgs = { inherit unstablePkgs; };
+    };
+  };
+}
