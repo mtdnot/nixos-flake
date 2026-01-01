@@ -38,10 +38,17 @@
     yq                 # YAML processor
     tldr               # Simplified man pages
 
+    # ターミナル関連
+    tmux               # Terminal multiplexer
+    tmuxinator         # Tmux session manager
+    tmuxp              # Tmux session manager (Python based)
+
     # ネットワーク
     curl
     wget
     httpie
+
+    cloudflared        # Cloudflare Tunnel client
 
     # アーカイブ
     zip

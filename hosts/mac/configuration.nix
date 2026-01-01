@@ -49,6 +49,12 @@
       autoUpdate = false;
       cleanup = "zap";
     };
+
+    
+    brews = [
+      "node@20"
+      "cloudflared"
+    ];
     # 必要に応じてcasksやbrewsを追加
     casks = [
       # "visual-studio-code"

@@ -7,6 +7,8 @@
     ./direnv.nix
     ../emacs      # Emacs設定モジュールをインポート
     ../lualatex   # LuaLaTeX環境モジュールをインポート
+    ./ssh.nix
+    ../home-manager/dotfiles.nix
   ];
 
   # LuaLaTeX環境を有効化（最小構成）
@@ -62,9 +64,15 @@
   ];
 
   # npm グローバルバイナリへのパス（claude, openclaw等）
-  home.sessionPath = [
-    "$HOME/.local/npm-global/bin"
-  ];
+  home.sessionPath =
+    [
+      "$HOME/.local/npm-global/bin"
+    ]
+    ++ lib.optionals pkgs.stdenv.isDarwin [
+      "/opt/homebrew/bin"
+      "/usr/local/bin"
+      "/opt/homebrew/opt/node@20/bin"
+    ];
 
   # direnv: 自動環境アクティベーション
   programs.direnv = {
@@ -208,6 +216,5 @@
       visual = "!gitk";
     };
   };
-
   home.stateVersion = "24.11";
 }
