@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/fixus/.config/hypr/**)",
+      "Bash(hyprctl monitors:*)",
+      "Bash(fc-list:*)",
+      "Bash(hyprctl workspaces:*)",
+      "Bash(hyprctl clients:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
