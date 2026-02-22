@@ -10,9 +10,12 @@
 
     darwin.url = "github:lnl7/nix-darwin";
     darwin.inputs.nixpkgs.follows = "nixpkgs";
+
+    nix-openclaw.url = "github:openclaw/nix-openclaw";
+    nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, nix-openclaw, ... }:
   let
     lib = nixpkgs.lib;
 
@@ -31,7 +34,7 @@
     # NixOS ホスト構成を作るヘルパ
     mkNixos = hostConfig: lib.nixosSystem {
       system = "x86_64-linux";
-      specialArgs = { inherit unstablePkgs self; };
+      specialArgs = { inherit unstablePkgs self nix-openclaw; };
 
       modules = [
         hostConfig

@@ -5,59 +5,17 @@ let
 #  docusaurusSite = self.packages.${pkgs.system}.docusaurusSite;
 in
 {
-  # ハードウェア構成
+  # 共通設定をインポート
   imports = [
     ./hardware-configuration.nix
+    ../../modules/nixos/common.nix
   ];
 
-  # Nix コマンド / flake 有効化
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  ############################
+  # CUI 固有設定
+  ############################
 
-  # non-free パッケージ許可（元設定を継承）
-  nixpkgs.config.allowUnfree = true;
-
-  # セキュリティ脆弱性のあるパッケージを許可（一時的な対処）
-  nixpkgs.config.permittedInsecurePackages = [
-    "emacs-pgtk-with-packages-29.4"
-  ];
-
-  # バイナリ互換 (glibc まわり) - 元の設定を維持
-  programs.nix-ld.enable = true;
-
-  # ロケール・タイムゾーン（元どおり）
-  time.timeZone = "Asia/Tokyo";
-  i18n.defaultLocale = "ja_JP.UTF-8";
-
-  # IME 設定（無効化された状態で構造だけ維持）
-  i18n.inputMethod = {
-    type = "fcitx5";
-    enable = false;
-    fcitx5 = {
-      addons = with pkgs; [
-        fcitx5-mozc
-        fcitx5-gtk
-      ];
-    };
-  };
-
-  # ネットワーク（元設定ベース）
-  networking.networkmanager.enable = true;
-  networking.firewall.allowedTCPPorts = [ 80 445 3000 5173 8765 ];  # 3000: Context Keeper, 5173: Vite Dev Server, 8765: MAS API Server (Hono)
-  networking.firewall.allowedUDPPorts = [ 137 138 ];
-
-  # SSH (元設定を維持)
-  services.openssh = {
-    enable = true;
-
-    # 24.11 で仕様変更：これが新しい正しい場所
-    settings = {
-      PermitRootLogin = "yes";
-      PasswordAuthentication = true;
-      PubkeyAuthentication = true;
-    };
-  };
-
-  # ブートローダ（元設定ベース）
+  # ブートローダ
   boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -81,21 +39,12 @@ in
     ];
   };
 
+  # mtdnot ユーザーに samba グループを追加
+  users.users.mtdnot.extraGroups = [ "wheel" "networkmanager" "audio" "video" "docker" "samba" ];
 
-  # ユーザー定義
-  users.users.mtdnot = {
-    isNormalUser = true;
-    home = "/home/mtdnot";
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" "docker" "samba" ];
-  };
-
-  # nixos-rebuild を NOPASSWD で実行可能にする
-  security.sudo.extraRules = [{
-    users = [ "mtdnot" ];
-    commands = [
-      { command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild"; options = [ "NOPASSWD" ]; }
-    ];
-  }];
+  # CUI 固有のファイアウォール設定（Samba用）
+  networking.firewall.allowedTCPPorts = [ 80 445 3000 5173 8765 ];  # 445: Samba
+  networking.firewall.allowedUDPPorts = [ 137 138 ];  # Samba
 
   ##############################################
   # Samba File Server
@@ -302,55 +251,12 @@ in
     };
   };
 
-  # CUI 側で最低限ほしいツール（OS レベル）
+  # CUI 固有のシステムパッケージ
   environment.systemPackages = with pkgs; [
-    git
-    tmux
-    htop
-    neofetch
-    zsh
-    pciutils
-    terraform
     cifs-utils
-    awscli2             # AWS CLI v2
     cloudflared         # Cloudflare Tunnel クライアント
-    jdk21               # Java 21
     flyctl              # Fly.io CLI
   ];
-
-
-  ############################
-  # NVIDIA GPU 用設定
-  ############################
-
-
-
-  hardware.graphics = {
-    enable = true;
-    enable32Bit = true;  # ← 32bit ライブラリも入れる
-  };
-
-
-  hardware.nvidia = {
-    modesetting.enable = true;
-    powerManagement.enable = false;
-    open = false;
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
-  };
-  services.xserver.videoDrivers = [ "nvidia" ];
-  boot.blacklistedKernelModules = [ "nouveau" ];
-
-  virtualisation.docker = {
-    enable = true;
-    enableNvidia = true;
-  };
-
-  # これは enableNvidia が内部で面倒を見てくれるので、いったん消してもいい
-  # hardware.nvidia-container-toolkit.enable = true;
-
-
-
-  hardware.nvidia-container-toolkit.enable = true;
 
   # Cloudflare Tunnel Service for SSH Access
   systemd.services.cloudflared = {
@@ -373,26 +279,4 @@ in
       ];
     };
   };
-
-  # nixos-rebuild switch 実行後に shell 設定を自動的に再読み込み
-  system.activationScripts.sourceShellConfigs = lib.stringAfter [ "users" ] ''
-    # 各ユーザーのシェル設定を再読み込みするスクリプトを作成
-    for user_home in /home/*; do
-      if [ -d "$user_home" ]; then
-        username=$(basename "$user_home")
-
-        # bashrc と zshrc のソースを促すメッセージを表示
-        echo "Shell configuration files have been updated for user: $username"
-        echo "Please run one of the following commands in your terminal:"
-        echo "  source ~/.bashrc  (for bash users)"
-        echo "  source ~/.zshrc   (for zsh users)"
-
-        # ユーザーの現在のシェルセッションには直接影響を与えられないため、
-        # 新しいシェルセッションで自動的に読み込まれることを通知
-        echo "Note: New shell sessions will automatically use the updated configuration."
-      fi
-    done
-  '';
-
-  system.stateVersion = "24.11";
 }

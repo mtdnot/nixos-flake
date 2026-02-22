@@ -18,7 +18,7 @@
     pkg-config
     
     # ランタイム
-    nodejs_20
+    # Note: nodejs is defined in home.nix to avoid version conflicts
     python3
     go
     rustc
@@ -54,9 +54,8 @@
     
     # プロジェクト環境管理
     direnv
-    
-    # macOS specific
-    mas                # Mac App Store CLI
-    
-  ] ++ lib.optional (pkgs ? claude-code) claude-code;
+
+  ]
+  ++ lib.optional (pkgs ? claude-code) claude-code
+  ++ lib.optional pkgs.stdenv.isDarwin mas;  # Mac App Store CLI (macOS only)
 }
