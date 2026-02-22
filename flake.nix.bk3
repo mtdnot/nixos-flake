@@ -1,0 +1,130 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+
+    # 任意の system 向け pkgs を取るヘルパ
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
+
+    # Linux (x86_64) 用の unstable パッケージセット
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    # NixOS ホスト構成を作るヘルパ
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit unstablePkgs self; };
+
+      modules = [
+        hostConfig
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg:
+            builtins.elem (lib.getName pkg) [
+              "claude-code"
+            ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  in {
+    ########################################
+    ## 開発用 devShell (GPU / PyTorch / HF 用)
+    ########################################
+    devShells.x86_64-linux.default =
+      let
+        python = unstablePkgs.python311;
+
+      in
+      unstablePkgs.mkShell {
+        buildInputs = [
+          # Python 本体
+          python
+          python.pkgs.pip
+          python.pkgs.setuptools
+          python.pkgs.wheel
+
+          # GPU 対応 PyTorch
+          pytorch
+
+          # CUDA ツールキット（nvcc 等が必要なら）
+          unstablePkgs.cudatoolkit
+
+          # 開発のユーティリティ
+          unstablePkgs.git
+          unstablePkgs.git-lfs
+
+          # HF エコシステム（最低限）
+          python.pkgs.transformers
+          python.pkgs.accelerate
+        ];
+
+        shellHook = ''
+          # CUDA 関連の環境変数
+          export CUDA_HOME=${unstablePkgs.cudatoolkit}
+          export LD_LIBRARY_PATH=${unstablePkgs.cudatoolkit}/lib:$LD_LIBRARY_PATH
+          export PATH=${unstablePkgs.cudatoolkit}/bin:$PATH
+
+          echo "=== anagi devShell ==="
+          echo "PyTorch + CUDA は Nix 側、以下は pip で入れて使うことを想定:"
+          echo "  pip install \"unsloth[torch]\" xformers flash-attn"
+        '';
+      };
+
+    ########################################
+    ## Hosts
+    ########################################
+    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+      specialArgs = { inherit unstablePkgs self; };
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  };
+}

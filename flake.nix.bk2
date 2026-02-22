@@ -1,0 +1,138 @@
+{
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  let
+    lib = nixpkgs.lib;
+
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
+
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    mkNixos = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit unstablePkgs self; };
+
+      modules = [
+        hostConfig
+        {
+          nixpkgs.overlays = [
+            (final: prev: {
+              claude-code = unstablePkgs.claude-code;
+            })
+          ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
+          nixpkgs.config.allowUnfreePredicate = pkg:
+            builtins.elem (lib.getName pkg) [
+              "claude-code"
+            ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  in {
+
+    ##################################################
+    # devShell (←君が追加したい場所はここ)
+    ##################################################
+
+        devShells.x86_64-linux.default =
+      let
+        cuda = unstablePkgs.cudaPackages_11_8;
+        python = unstablePkgs.python311;
+
+        pytorch = python.pkgs.pytorch-bin.override {
+          cudaSupport = true;
+          cudatoolkit = cuda;
+        };
+      in
+      unstablePkgs.mkShell {
+        buildInputs = [
+          # CUDA toolchain & runtime
+          cuda.toolkit
+          cuda.cuda_cudart
+          cuda.cudnn
+
+          # PyTorch (CUDA)
+          pytorch
+
+          # Python 基本
+          python
+          python.pkgs.pip
+          python.pkgs.setuptools
+          python.pkgs.wheel
+
+          # 開発に最低限ほしいやつ
+          unstablePkgs.git
+          unstablePkgs.git-lfs
+
+          # HF 周辺
+          python.pkgs.transformers
+          python.pkgs.accelerate
+        ];
+
+        shellHook = ''
+          export CUDA_HOME=${cuda.toolkit}
+          export LD_LIBRARY_PATH=${cuda.toolkit}/lib:$LD_LIBRARY_PATH
+          export PATH=${cuda.toolkit}/bin:$PATH
+
+          echo "=== CUDA 11.8 / PyTorch devShell ==="
+          echo "必要なら: pip install unsloth xformers flash-attn"
+        '';
+      };
+
+
+    ##################################################
+    # NixOS hosts
+    ##################################################
+    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+
+    ##################################################
+    # macOS host
+    ##################################################
+    darwinConfigurations.mac = darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
+      specialArgs = { inherit unstablePkgs self; };
+      modules = [
+        ./hosts/mac/configuration.nix
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+  };
+}
