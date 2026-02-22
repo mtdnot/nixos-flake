@@ -15,6 +15,14 @@ in
   # CUI 固有設定
   ############################
 
+  # non-free パッケージ許可
+  nixpkgs.config.allowUnfree = true;
+
+  # セキュリティ脆弱性のあるパッケージを許可（一時的な対処）
+  nixpkgs.config.permittedInsecurePackages = [
+    "emacs-pgtk-with-packages-29.4"
+  ];
+
   # ブートローダ
   boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;

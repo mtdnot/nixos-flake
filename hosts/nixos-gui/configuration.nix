@@ -43,7 +43,7 @@ in
       noto-fonts-cjk-serif
       noto-fonts-cjk-sans
       noto-fonts-emoji
-      (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+      nerd-fonts.jetbrains-mono
     ];
 
     fontDir.enable = true;
@@ -89,12 +89,7 @@ in
     ];
   };
 
-  # 1Password
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "1password"
-    "1password-gui"
-  ];
-
+  # 1Password (allowUnfree is already set in flake.nix)
   programs._1password.enable = true;
   programs._1password-gui = {
     enable = true;

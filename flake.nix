@@ -8,16 +8,20 @@
     home-manager.url = "github:nix-community/home-manager/release-24.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
+    home-manager-unstable.url = "github:nix-community/home-manager/master";
+    home-manager-unstable.inputs.nixpkgs.follows = "unstable";
+
     darwin.url = "github:lnl7/nix-darwin";
     darwin.inputs.nixpkgs.follows = "nixpkgs";
 
     nix-openclaw.url = "github:openclaw/nix-openclaw";
-    nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
+    nix-openclaw.inputs.nixpkgs.follows = "unstable";
   };
 
-  outputs = { self, nixpkgs, unstable, home-manager, darwin, nix-openclaw, ... }:
+  outputs = { self, nixpkgs, unstable, home-manager, home-manager-unstable, darwin, nix-openclaw, ... }:
   let
     lib = nixpkgs.lib;
+    unstableLib = unstable.lib;
 
     # 任意の system 向け pkgs を取るヘルパ
     pkgsFor = system: import nixpkgs {
@@ -29,7 +33,6 @@
     unstablePkgs = import unstable {
       system = "x86_64-linux";
       config.allowUnfree = true;
-      overlays = [ nix-openclaw.overlays.default ];
     };
 
     # NixOS ホスト構成を作るヘルパ (stable 24.11)
@@ -61,22 +64,25 @@
       ];
     };
 
-    # NixOS ホスト構成を作るヘルパ (unstable - GUI/OpenClaw用)
-    mkNixosUnstable = hostConfig: lib.nixosSystem {
+    # NixOS ホスト構成を作るヘルパ (GUI + unstable base for OpenClaw)
+    mkNixosWithAgentUnstable = hostConfig: unstableLib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit unstablePkgs self nix-openclaw; };
 
       modules = [
         hostConfig
+
+        # nixpkgs設定とoverlays
         {
-          # unstableをベースに使用
-          nixpkgs.pkgs = unstablePkgs;
+          nixpkgs.pkgs = import unstable {
+            system = "x86_64-linux";
+            config.allowUnfree = true;
+            overlays = [ nix-openclaw.overlays.default ];
+          };
         }
 
-        home-manager.nixosModules.home-manager
+        home-manager-unstable.nixosModules.home-manager
         {
-          nixpkgs.config.allowUnfree = true;
-
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
 
@@ -363,7 +369,7 @@ EOF
     ########################################
     ## Hosts
     ########################################
-    nixosConfigurations.nixos-gui = mkNixosUnstable ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-gui = mkNixosWithAgentUnstable ./hosts/nixos-gui/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {

@@ -4,14 +4,6 @@
   # Nix コマンド / flake 有効化
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  # non-free パッケージ許可
-  nixpkgs.config.allowUnfree = true;
-
-  # セキュリティ脆弱性のあるパッケージを許可（一時的な対処）
-  nixpkgs.config.permittedInsecurePackages = [
-    "emacs-pgtk-with-packages-29.4"
-  ];
-
   # バイナリ互換 (glibc まわり)
   programs.nix-ld.enable = true;
 
