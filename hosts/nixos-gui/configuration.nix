@@ -1,8 +1,22 @@
-{ config, pkgs, lib, nix-openclaw, ... }: {
+{ config, pkgs, lib, nix-openclaw, ... }:
+
+let
+  # Windsurf specific nixpkgs
+  nixpkgs-windsurf = builtins.fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/fe51d34885f7b5e3e7b59572796e1bcb427eccb1.tar.gz";
+    sha256 = "0pg3ibyagan1y57l1q1rwyrygrwg02p59p0fbgl23hf1nw58asda";
+  };
+
+  windsurf = (import nixpkgs-windsurf {
+    inherit (pkgs) system;
+    config.allowUnfree = true;
+  }).windsurf;
+
+in
+{
   # 共通設定をインポート
   imports = [
-    # TODO: hardware-configuration.nix を追加してください
-    # ./hardware-configuration.nix
+    ./hardware-configuration.nix
     ../../modules/nixos/common.nix
   ];
 
@@ -10,22 +24,120 @@
   # GUI 固有設定
   ############################
 
-  # TODO: ブートローダ設定を追加してください
-  # boot.loader.systemd-boot.enable = true;
-  # boot.loader.efi.canTouchEfiVariables = true;
+  # ブートローダ
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
-  # TODO: ファイルシステム設定を追加してください
-  # fileSystems."/" = {
-  #   device = "/dev/disk/by-uuid/your-uuid";
-  #   fsType = "ext4";
-  # };
+  # WiFi設定
+  networking.wireless.enable = true;
+  networking.wireless.userControlled.enable = true;
+
+  # フォント設定
+  fonts = {
+    packages = with pkgs; [
+      # HackGen NF
+      (pkgs.fetchzip {
+        url = "https://github.com/yuru7/HackGen/releases/download/v2.9.0/HackGen_NF_v2.9.0.zip";
+        hash = "sha256-Lh4WQJjeP4JuR8jSXpRNSrjRsNPmNXSx5AItNYMJL2A=";
+      })
+      noto-fonts-cjk-serif
+      noto-fonts-cjk-sans
+      noto-fonts-emoji
+      (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+    ];
+
+    fontDir.enable = true;
+
+    fontconfig = {
+      defaultFonts = {
+        serif = [ "Noto Serif CJK JP" "Noto Color Emoji" ];
+        sansSerif = [ "Noto Sans CJK JP" "Noto Color Emoji" ];
+        monospace = [ "HackGen Console NF" "JetBrainsMono Nerd Font" "Noto Color Emoji" ];
+        emoji = [ "Noto Color Emoji" ];
+      };
+    };
+  };
+
+  # X Server有効化
+  services.xserver.enable = true;
+
+  # LightDM Display Manager
+  services.xserver.displayManager.lightdm = {
+    enable = true;
+    greeters.gtk = {
+      enable = true;
+      theme.name = "Materia-dark";
+      iconTheme.name = "Papirus-Dark";
+      cursorTheme.name = "Breeze_Snow";
+      extraConfig = ''
+        background = /etc/nixos/assets/chirno_nix_desktop.png
+        font-name = "Noto Sans Bold 11"
+      '';
+    };
+  };
+
+  # Hyprland有効化
+  programs.hyprland.enable = true;
+
+  # OBS Studio
+  programs.obs-studio = {
+    enable = true;
+    plugins = with pkgs.obs-studio-plugins; [
+      wlrobs
+      obs-backgroundremoval
+      obs-pipewire-audio-capture
+    ];
+  };
+
+  # 1Password
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+    "1password"
+    "1password-gui"
+  ];
+
+  programs._1password.enable = true;
+  programs._1password-gui = {
+    enable = true;
+    polkitPolicyOwners = ["fixus" "agent"];
+  };
+
+  # Steam
+  programs.steam.enable = true;
+
+  # VirtualBox
+  virtualisation.virtualbox.host.enable = true;
+
+  # fixus ユーザー（Hyprland用）
+  users.users.fixus = {
+    isNormalUser = true;
+    extraGroups = ["wheel" "networkmanager" "vboxusers"];
+    packages = with pkgs; [
+      firefox
+      kitty
+      waybar
+    ];
+    shell = pkgs.bash;
+  };
+
+  # fixusユーザーもNOPASSWD sudo可能に
+  security.sudo.extraRules = [
+    {
+      users = ["fixus"];
+      commands = [
+        {
+          command = "ALL";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 
   # Agent ユーザー定義
   users.users.agent = {
     isNormalUser = true;
     description = "Agent User";
     home = "/home/agent";
-    extraGroups = [ "wheel" ];  # sudo権限
+    extraGroups = [ "wheel" ];
   };
 
   # Pass nix-openclaw to home-manager modules
@@ -39,8 +151,40 @@
     nix-openclaw.homeManagerModules.openclaw
   ];
 
-  # TODO: GUI 環境設定を追加してください（必要に応じて）
-  # services.xserver.enable = true;
-  # services.xserver.displayManager.gdm.enable = true;
-  # services.xserver.desktopManager.gnome.enable = true;
+  # GUI固有のシステムパッケージ
+  environment.systemPackages = with pkgs; [
+    # Hyprland関連
+    waybar
+    wl-clipboard
+    hyprpaper
+    wofi
+    grim
+    slurp
+    swappy
+    brightnessctl
+
+    # GUI アプリケーション
+    firefox
+    kitty
+    emacs-pgtk
+    eog
+    obsidian
+    google-chrome
+    vscode
+    windsurf
+    thunderbird
+
+    # ツール
+    steam-run
+    sshfs
+    rclone
+    stow
+    claude-code
+
+    # 日本語入力
+    fcitx5
+    fcitx5-mozc
+    fcitx5-gtk
+    qt6.qtbase
+  ];
 }

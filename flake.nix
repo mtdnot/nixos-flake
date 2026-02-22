@@ -29,9 +29,10 @@
     unstablePkgs = import unstable {
       system = "x86_64-linux";
       config.allowUnfree = true;
+      overlays = [ nix-openclaw.overlays.default ];
     };
 
-    # NixOS ホスト構成を作るヘルパ
+    # NixOS ホスト構成を作るヘルパ (stable 24.11)
     mkNixos = hostConfig: lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit unstablePkgs self nix-openclaw; };
@@ -49,10 +50,32 @@
         home-manager.nixosModules.home-manager
         {
           nixpkgs.config.allowUnfree = true;
-          # nixpkgs.config.allowUnfreePredicate = pkg:
-          #   builtins.elem (lib.getName pkg) [
-          #     "claude-code"
-          #   ];
+
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+
+    # NixOS ホスト構成を作るヘルパ (unstable - GUI/OpenClaw用)
+    mkNixosUnstable = hostConfig: lib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit unstablePkgs self nix-openclaw; };
+
+      modules = [
+        hostConfig
+        {
+          # unstableをベースに使用
+          nixpkgs.pkgs = unstablePkgs;
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          nixpkgs.config.allowUnfree = true;
 
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
@@ -340,7 +363,7 @@ EOF
     ########################################
     ## Hosts
     ########################################
-    nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-gui = mkNixosUnstable ./hosts/nixos-gui/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {
