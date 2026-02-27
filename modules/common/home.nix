@@ -75,16 +75,19 @@
   programs.zsh = {
     enable = true;
 
-    # シンプルで見やすいプロンプト
-    # 形式: [ユーザー@ホスト ディレクトリ]
-    # $
-    initExtra = ''
+    # 非インタラクティブシェルでも有効な設定（agentで使えるように）
+    envExtra = ''
       # AWS プロファイル設定
       export AWS_PROFILE=sso
 
       # npm グローバルバイナリのパス追加
       export PATH="$(npm prefix -g 2>/dev/null)/bin:$PATH"
+    '';
 
+    # シンプルで見やすいプロンプト（インタラクティブシェルのみ）
+    # 形式: [ユーザー@ホスト ディレクトリ]
+    # $
+    initExtra = ''
       # プロンプト設定
       autoload -U colors && colors
 
@@ -108,7 +111,6 @@
       l = "ls -CF";
       ".." = "cd ..";
       "..." = "cd ../..";
-      mas = "/home/mtdnot/dev/anag/mas/mas";
       # Nixコマンドのエイリアス
       nrb = "sudo nixos-rebuild";
       nrbs = "sudo nixos-rebuild switch --flake /home/mtdnot/nix#nixos-cui && echo 'Reloading shell configuration...' && exec $SHELL";
@@ -136,14 +138,17 @@
   programs.bash = {
     enable = true;
 
-    # bashプロンプト設定
-    initExtra = ''
+    # 非インタラクティブシェルでも有効な設定（agentで使えるように）
+    bashrcExtra = ''
       # AWS プロファイル設定
       export AWS_PROFILE=sso
 
       # npm グローバルバイナリのパス追加
       export PATH="$(npm prefix -g 2>/dev/null)/bin:$PATH"
+    '';
 
+    # bashプロンプト設定（インタラクティブシェルのみ）
+    initExtra = ''
       # カラフルなプロンプト
       PS1='\[\033[01;32m\][\u@\h \[\033[01;34m\]\w\[\033[01;32m\]]\[\033[00m\]\n\[\033[01;36m\]$\[\033[00m\] '
     '';
@@ -155,7 +160,6 @@
       l = "ls -CF";
       ".." = "cd ..";
       "..." = "cd ../..";
-      mas = "/home/mtdnot/dev/anag/mas/mas";
       # Nixコマンドのエイリアス
       nrb = "sudo nixos-rebuild";
       nrbs = "sudo nixos-rebuild switch --flake /home/mtdnot/nix#nixos-cui && echo 'Reloading shell configuration...' && exec $SHELL";
@@ -188,6 +192,7 @@
       push.autoSetupRemote = true;
       core.editor = "vim";
       color.ui = "auto";
+      safe.directory = "/home/mtdnot/nix";  # agentユーザーがアクセスできるように
     };
 
     aliases = {

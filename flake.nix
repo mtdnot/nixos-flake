@@ -46,16 +46,25 @@
         home-manager.nixosModules.home-manager
         {
           nixpkgs.config.allowUnfree = true;
-          # nixpkgs.config.allowUnfreePredicate = pkg:
-          #   builtins.elem (lib.getName pkg) [
-          #     "claude-code"
-          #   ];
 
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
 
           home-manager.users.mtdnot = {
             imports = [ ./modules/common/home.nix ];
+          };
+
+          home-manager.users.agent = {
+            imports = [ ./modules/common/home.nix ];
+          };
+
+          # OpenClaw organization users
+          home-manager.users.oc-anag = {
+            imports = [ ./modules/users/oc-anag/home.nix ];
+          };
+
+          home-manager.users.oc-rf = {
+            imports = [ ./modules/users/oc-rf/home.nix ];
           };
         }
       ];
@@ -119,14 +128,9 @@
       in
       pkgs.mkShell {
         buildInputs = [
-          # Java 21
           pkgs.jdk21
-          
-          # ビルドツール
           pkgs.maven
           pkgs.gradle
-          
-          # 基本的な開発ツール
           pkgs.git
           pkgs.curl
           pkgs.jq
@@ -134,17 +138,7 @@
 
         shellHook = ''
           echo "=== Java 21 Development Shell ==="
-          echo ""
-          echo "Java version:"
           java --version
-          echo ""
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo ""
-          echo "Available tools:"
-          echo "  - java, javac (JDK 21)"
-          echo "  - maven"
-          echo "  - gradle"
-          echo ""
         '';
         
         JAVA_HOME = "${pkgs.jdk21}";
@@ -159,17 +153,11 @@
       in
       pkgs.mkShell {
         buildInputs = [
-          # Node.js環境
-          pkgs.nodejs_20
           pkgs.playwright-driver.browsers
-          
-          # Python環境
           pkgs.python312
           pkgs.python312Packages.pip
           pkgs.python312Packages.setuptools
           pkgs.python312Packages.wheel
-          
-          # 基本的な開発ツール
           pkgs.git
           pkgs.curl
           pkgs.wget
@@ -177,27 +165,11 @@
         ];
 
         shellHook = ''
-          echo "🚀 GPTShell environment activated!"
-          echo ""
-          
-          # Playwright環境変数の設定
+          echo "GPTShell environment activated!"
           export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
           export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
-          export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="ubuntu-24.04"
-          
-          # npm globalの設定
           export NPM_CONFIG_PREFIX=~/.local/npm-global
           export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
-          
-          echo "=== Environment Info ==="
-          echo "Node.js: $(node -v)"
-          echo "Python: $(python --version)"
-          echo "npm: $(npm -v)"
-          echo ""
-          echo "Playwright browsers available at: $PLAYWRIGHT_BROWSERS_PATH"
-          echo ""
-          echo "To enter this shell: nix develop ~/nix#gptshell"
-          echo ""
         '';
       };
 
@@ -211,7 +183,6 @@
       in
       pkgs.mkShell {
         buildInputs = [
-          # Python環境
           python
           python.pkgs.pip
           python.pkgs.setuptools
@@ -221,115 +192,17 @@
           python.pkgs.pytest
           python.pkgs.requests
           python.pkgs.virtualenv
-
-          # Node.js環境
-          pkgs.nodejs_20  # Node.js v20 LTS
-
-          # Java Runtime (openapi-generator-cli用)
-          pkgs.openjdk17  # OpenJDK 17 LTS
-
-          # 基本的な開発ツール
+          pkgs.nodejs_20
+          pkgs.openjdk17
           pkgs.git
           pkgs.curl
           pkgs.jq
         ];
 
         shellHook = ''
-          echo "=== Agent Shell - Python + OpenSpec Environment ==="
-          echo ""
-
-          # ローカルのnode_modulesディレクトリを作成（PATHの最優先に）
+          echo "=== Agent Shell ==="
           mkdir -p ~/.local/npm-global
           export NPM_CONFIG_PREFIX=~/.local/npm-global
-          # npm globalを最優先にするため、PATHの先頭に追加
-          export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
-
-          # @fission-ai/openspecがインストールされているか確認
-          if ! command -v openspec &> /dev/null; then
-            echo "Installing @fission-ai/openspec..."
-            npm install -g @fission-ai/openspec@latest
-          else
-            echo "@fission-ai/openspec is already installed"
-          fi
-
-          # @openai/codexがインストールされているか確認
-          if ! npm list -g @openai/codex &> /dev/null; then
-            echo "Installing @openai/codex..."
-            npm install -g @openai/codex@latest
-          else
-            echo "@openai/codex is already installed"
-          fi
-
-          # OpenAPI/Swagger関連ツールをインストール
-          echo "Checking OpenAPI/Swagger tools..."
-
-          # OpenAPI Generator CLI
-          if ! command -v openapi-generator-cli &> /dev/null; then
-            echo "Installing @openapitools/openapi-generator-cli..."
-            npm install -g @openapitools/openapi-generator-cli@latest
-          else
-            echo "@openapitools/openapi-generator-cli is already installed"
-          fi
-
-          # Swagger CLI
-          if ! command -v swagger-cli &> /dev/null; then
-            echo "Installing @apidevtools/swagger-cli..."
-            npm install -g @apidevtools/swagger-cli@latest
-          else
-            echo "@apidevtools/swagger-cli is already installed"
-          fi
-
-          # Redocly CLI
-          if ! command -v redocly &> /dev/null; then
-            echo "Installing @redocly/cli..."
-            npm install -g @redocly/cli@latest
-          else
-            echo "@redocly/cli is already installed"
-          fi
-
-          # Spectral (OpenAPI linter)
-          if ! command -v spectral &> /dev/null; then
-            echo "Installing @stoplight/spectral-cli..."
-            npm install -g @stoplight/spectral-cli@latest
-          else
-            echo "@stoplight/spectral-cli is already installed"
-          fi
-
-          # Spectralのデフォルト設定ファイルを作成
-          if [ ! -f ~/.spectral.yaml ]; then
-            echo "Creating default Spectral configuration..."
-            cat > ~/.spectral.yaml << 'EOF'
-extends: ["spectral:oas", "spectral:asyncapi"]
-rules:
-  operation-description: warn
-  operation-operationId: error
-  operation-tags: warn
-  oas3-api-servers: warn
-EOF
-            echo "Default .spectral.yaml created at ~/.spectral.yaml"
-          fi
-
-          echo ""
-          echo "=== Installed Tools ==="
-          echo "Python: $(python --version)"
-          echo "pip: $(pip --version)"
-          echo "Node.js: $(node --version)"
-          echo "npm: $(npm --version)"
-          echo "Java: $(java --version | head -n 1)"
-          echo ""
-          echo "AI Tools:"
-          echo "  - openspec (Fission AI)"
-          echo "  - @openai/codex"
-          echo ""
-          echo "OpenAPI/Swagger Tools:"
-          echo "  - openapi-generator-cli: Generate client/server code from OpenAPI specs"
-          echo "  - swagger-cli: Validate and bundle OpenAPI/Swagger files"
-          echo "  - redocly: Modern OpenAPI linting and documentation"
-          echo "  - spectral: Flexible JSON/YAML linter for OpenAPI"
-          echo ""
-          echo "To enter this shell: nix develop .#agentshell"
-
-          # 最後にPATHを再設定して npm global を最優先に
           export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
         '';
       };
@@ -353,10 +226,12 @@ EOF
           home-manager.users.mtdnot = {
             imports = [ ./modules/common/home.nix ];
           };
+
+          home-manager.users.agent = {
+            imports = [ ./modules/common/home.nix ];
+          };
         }
       ];
     };
   };
 }
-
-

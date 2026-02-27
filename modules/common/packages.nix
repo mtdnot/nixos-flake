@@ -18,7 +18,6 @@
     pkg-config
     
     # ランタイム
-    nodejs_20
     python3
     go
     rustc
@@ -55,8 +54,6 @@
     # プロジェクト環境管理
     direnv
     
-    # macOS specific
-    mas                # Mac App Store CLI
     
   ] ++ lib.optional (pkgs ? claude-code) claude-code;
 }
