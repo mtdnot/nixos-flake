@@ -6,9 +6,9 @@
     description = "OpenClaw - ANAG";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.nodejs_22 ];
     environment = {
       HOME = "/home/oc-anag";
-      PATH = "/home/oc-anag/.npm-global/bin:${pkgs.nodejs_22}/bin:/run/current-system/sw/bin";
     };
     serviceConfig = {
       Type = "simple";
@@ -25,9 +25,9 @@
     description = "OpenClaw - Refixa";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.nodejs_22 ];
     environment = {
       HOME = "/home/oc-rf";
-      PATH = "/home/oc-rf/.npm-global/bin:${pkgs.nodejs_22}/bin:/run/current-system/sw/bin";
     };
     serviceConfig = {
       Type = "simple";
