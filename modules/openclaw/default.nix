@@ -14,7 +14,7 @@
       Type = "simple";
       User = "oc-anag";
       WorkingDirectory = "/home/oc-anag";
-      ExecStart = "/home/oc-anag/.npm-global/bin/openclaw gateway start --foreground";
+      ExecStart = "/home/oc-anag/.npm-global/bin/openclaw gateway run";
       Restart = "always";
       RestartSec = 5;
     };
@@ -33,7 +33,7 @@
       Type = "simple";
       User = "oc-rf";
       WorkingDirectory = "/home/oc-rf";
-      ExecStart = "/home/oc-rf/.npm-global/bin/openclaw gateway start --foreground";
+      ExecStart = "/home/oc-rf/.npm-global/bin/openclaw gateway run";
       Restart = "always";
       RestartSec = 5;
     };
