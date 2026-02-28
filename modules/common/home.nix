@@ -25,6 +25,9 @@
   home.packages = with pkgs; [
     # Node.js 22 (OpenClaw / npm global tools 用)
     nodejs_22
+    gcc
+    cmake
+    gnumake
     tree
     # claude-code は npm global で管理 (npm i -g @anthropic-ai/claude-code)
     # emacsは専用モジュールで管理
