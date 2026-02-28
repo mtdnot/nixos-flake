@@ -192,3 +192,10 @@
   system.stateVersion = "25.05"; # Did you read the comment?
 
 }
+
+  # ZLI organization user
+  users.users.zli = {
+    isNormalUser = true;
+    description = ZLI - サークル運営;
+    extraGroups = [ wheel ];
+  };

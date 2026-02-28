@@ -64,7 +64,19 @@
           };
 
           home-manager.users.oc-rf = {
+
+          home-manager.users.zli = {
+            imports = [ ./modules/users/zli/home.nix ];
+          };
             imports = [ ./modules/users/oc-rf/home.nix ];
+
+          home-manager.users.zli = {
+            imports = [ ./modules/users/zli/home.nix ];
+          };
+          };
+
+          home-manager.users.zli = {
+            imports = [ ./modules/users/zli/home.nix ];
           };
         }
       ];
