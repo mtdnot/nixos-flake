@@ -189,13 +189,13 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "25.05"; # Did you read the comment?
-
-}
 
   # ZLI organization user
   users.users.zli = {
     isNormalUser = true;
-    description = ZLI - サークル運営;
-    extraGroups = [ wheel ];
+    description = "ZLI - サークル運営";
+    extraGroups = [ "wheel" ];
   };
+
+  system.stateVersion = "25.05";
+}
