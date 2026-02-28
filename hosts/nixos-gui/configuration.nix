@@ -84,5 +84,12 @@
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [ 18791 18792 18793 ];
 
+
+  users.users.natsu = {
+    isNormalUser = true;
+    description = "natsu - 日常・人を繋ぐ";
+    extraGroups = [ "wheel" ];
+  };
+
   system.stateVersion = "25.05";
 }

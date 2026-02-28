@@ -31,6 +31,7 @@
           home-manager.users.anag = { imports = [ ./modules/users/anag/home.nix ]; };
           home-manager.users.rf = { imports = [ ./modules/users/rf/home.nix ]; };
           home-manager.users.zli = { imports = [ ./modules/users/zli/home.nix ]; };
+          home-manager.users.natsu = { imports = [ ./modules/users/natsu/home.nix ]; };
         }
       ];
     };

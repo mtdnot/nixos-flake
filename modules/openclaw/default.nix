@@ -48,4 +48,20 @@
       RestartSec = 5;
     };
   };
+
+  systemd.services.openclaw-natsu = {
+    description = "OpenClaw - natsu";
+    after = [ "network.target" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.nodejs_22 ];
+    environment = { HOME = "/home/natsu"; };
+    serviceConfig = {
+      Type = "simple";
+      User = "natsu";
+      WorkingDirectory = "/home/natsu";
+      ExecStart = "/home/natsu/.npm-global/bin/openclaw gateway run";
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
 }
