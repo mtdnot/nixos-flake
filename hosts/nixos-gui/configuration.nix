@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ../../modules/virtual-display.nix
     ./hardware-configuration.nix
     ../../modules/openclaw
   ];
@@ -35,6 +36,7 @@
   services.printing.enable = true;
   security.rtkit.enable = true;
 
+  security.sudo.extraConfig = "Defaults:mtdnot !requiretty";
   security.sudo.extraRules = [
     { users = [ "mtdnot" ]; commands = [{ command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild"; options = [ "NOPASSWD" ]; }]; }
     { users = [ "agent" ]; commands = [{ command = "ALL"; options = [ "NOPASSWD" ]; }]; }
@@ -79,8 +81,11 @@
   };
 
   programs.firefox.enable = true;
+  programs.nix-ld.enable = true;
+  virtualisation.docker.enable = true;
   nixpkgs.config.allowUnfree = true;
-  environment.systemPackages = with pkgs; [ cifs-utils ];
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  environment.systemPackages = with pkgs; [ cifs-utils chromium ];
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [ 18791 18792 18793 ];
 

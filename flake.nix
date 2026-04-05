@@ -57,6 +57,11 @@
         shellHook = ''mkdir -p ~/.local/npm-global; export NPM_CONFIG_PREFIX=~/.local/npm-global; export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"'';
       };
 
+    devShells.x86_64-linux.plantuml = let pkgs = unstablePkgs; in
+      pkgs.mkShell {
+        buildInputs = [ pkgs.plantuml pkgs.graphviz ];
+      };
+
     nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
 
