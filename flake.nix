@@ -6,24 +6,46 @@
     unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-24.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    home-manager-unstable.url = "github:nix-community/home-manager/master";
+    home-manager-unstable.inputs.nixpkgs.follows = "unstable";
+
     darwin.url = "github:lnl7/nix-darwin";
     darwin.inputs.nixpkgs.follows = "nixpkgs";
+
+    nix-openclaw.url = "github:openclaw/nix-openclaw";
+    nix-openclaw.inputs.nixpkgs.follows = "unstable";
   };
 
-  outputs = { self, nixpkgs, unstable, home-manager, darwin, ... }:
+  outputs = { self, nixpkgs, unstable, home-manager, home-manager-unstable, darwin, nix-openclaw, ... }:
   let
     lib = nixpkgs.lib;
-    unstablePkgs = import unstable { system = "x86_64-linux"; config.allowUnfree = true; };
+    unstableLib = unstable.lib;
 
+    # 任意の system 向け pkgs を取るヘルパ
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
+
+    # Linux (x86_64) 用の unstable パッケージセット
+    unstablePkgs = import unstable {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
+
+    # NixOS ホスト構成を作るヘルパ (stable 24.11)
     mkNixos = hostConfig: lib.nixosSystem {
       system = "x86_64-linux";
-      specialArgs = { inherit unstablePkgs self; };
+      specialArgs = { inherit unstablePkgs self nix-openclaw; };
+
       modules = [
         hostConfig
         { nixpkgs.overlays = [(final: prev: { claude-code = unstablePkgs.claude-code; })]; }
         home-manager.nixosModules.home-manager
         {
           nixpkgs.config.allowUnfree = true;
+
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
           home-manager.users.mtdnot = { imports = [ ./modules/common/home.nix ]; };
@@ -35,6 +57,37 @@
         }
       ];
     };
+
+    # NixOS ホスト構成を作るヘルパ (GUI + unstable base for OpenClaw)
+    mkNixosWithAgentUnstable = hostConfig: unstableLib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit unstablePkgs self nix-openclaw; };
+
+      modules = [
+        hostConfig
+
+        # nixpkgs設定とoverlays
+        {
+          nixpkgs.pkgs = import unstable {
+            system = "x86_64-linux";
+            config.allowUnfree = true;
+            overlays = [ nix-openclaw.overlays.default ];
+          };
+        }
+
+        home-manager-unstable.nixosModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+
+          home-manager.users.mtdnot = {
+            imports = [ ./modules/common/home.nix ];
+          };
+        }
+      ];
+    };
+
+
   in {
     devShells.x86_64-linux.default = let pkgs = unstablePkgs; python = pkgs.python311; cc = pkgs.stdenv.cc.cc; in
       pkgs.mkShell {
@@ -62,7 +115,11 @@
         buildInputs = [ pkgs.plantuml pkgs.graphviz ];
       };
 
+    ########################################
+    ## Hosts
+    ########################################
     nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.nixos-agent = mkNixosWithAgentUnstable ./hosts/nixos-agent/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {

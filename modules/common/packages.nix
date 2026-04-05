@@ -18,11 +18,12 @@
     pkg-config
     
     # ランタイム
+    # Note: nodejs is defined in home.nix to avoid version conflicts
     python3
     go
     rustc
     cargo
-    
+
     # ユーティリティ
     tree
     htop
@@ -36,24 +37,25 @@
     jq                 # JSON processor
     yq                 # YAML processor
     tldr               # Simplified man pages
-    
+
     # ネットワーク
     curl
     wget
     httpie
-    
+
     # アーカイブ
     zip
     unzip
     p7zip
-    
+
     # Docker/コンテナ
     docker
     docker-compose
-    
+
     # プロジェクト環境管理
     direnv
-    
-    
-  ] ++ lib.optional (pkgs ? claude-code) claude-code;
+
+  ]
+  ++ lib.optional (pkgs ? claude-code) claude-code
+  ++ lib.optional pkgs.stdenv.isDarwin mas;  # Mac App Store CLI (macOS only)
 }

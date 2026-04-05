@@ -81,7 +81,7 @@ in
       texlab        # Language Server Protocol for LaTeX
       
       # PDF関連
-      poppler_utils # pdftotext, pdfinfo等
+      poppler-utils # pdftotext, pdfinfo等
       ghostscript   # PostScript/PDF処理
       
       # 画像変換
