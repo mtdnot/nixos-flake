@@ -1,5 +1,5 @@
 {
-  description = "Unified config for macOS / NixOS-gui / NixOS-cui";
+  description = "Unified config for macOS / NixOS-gui / NixOS-cui / NixOS-nas";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -121,6 +121,7 @@
     nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
     nixosConfigurations.nixos-agent = mkNixosWithAgentUnstable ./hosts/nixos-agent/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
+    nixosConfigurations.nixos-nas = mkNixos ./hosts/nixos-nas/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {
       system = "aarch64-darwin";
