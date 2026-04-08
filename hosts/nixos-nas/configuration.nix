@@ -1,296 +1,158 @@
-{ config, lib, pkgs, modulesPath, ... }:
+{ config, pkgs, ... }:
 
 {
-  imports = [
-    ./hardware-configuration.nix
-    ../../modules/nixos/common.nix
-  ];
+  imports = [ ./hardware-configuration.nix ];
 
-  ############################
-  # NAS 基本設定
-  ############################
-
-  # ホスト名
-  networking.hostName = "nixos-nas";
-
-  # non-free パッケージ許可（Jellyfin等で必要）
-  nixpkgs.config.allowUnfree = true;
-
-  # タイムゾーン
-  time.timeZone = "Asia/Tokyo";
-
-  # ブートローダ設定
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # ユーザー設定
+  networking.hostName = "nixos-nas";
+  time.timeZone = "Asia/Tokyo";
+
+  services.openssh.enable = true;
+
+  # パスワードなしsudo
+  security.sudo.wheelNeedsPassword = false;
+
   users.users.nixos = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" "samba" "jellyfin" ];
+    extraGroups = [ "wheel" "samba" "jellyfin" ];
     openssh.authorizedKeys.keys = [
-      # ここにSSH公開鍵を追加
-      # "ssh-rsa AAAAB3NzaC1yc2E..."
+      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDK/hi6f6Thm9H4exhlxZ6mGcyJ1Uo4ZT4GBlpfb2Eag5bnsuB2F+jVtdScZD5V2YkgWon06fPyzutphrVeNDcQjp1/tukEak1431nkDMVxbQCWoJh/KP87frwGoMKg6ElRNGlc8RWDMwQRHMGiWLyM2wIaN22usKDjwAv2yaZ0lBBpzUoKvYp+wlCco1e3YGsGgJC4MGols+goRIXgApa62SMUPnzdCrz2msU9KwqbCwHlL+bKbBs4AqAgcnbvqj8itpOOjIrV8GPRk3akHdqsu24UlVZBrE4Xb30MhTogCGTTwRbmj9/ul0hHkoeQjBB1zZ6O0xUqVVV5y5nxDpc3"
     ];
   };
 
-  users.users.mtdnot = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" "samba" "jellyfin" ];
-  };
-
-  ############################
-  # ストレージ・ファイルシステム設定
-  ############################
-
-  # メディアファイル用ディレクトリ作成
   systemd.tmpfiles.rules = [
-    # Samba共有ディレクトリ
-    "d /srv/samba/media 0775 nixos samba - -"
-    "d /srv/samba/music 0775 nixos samba - -"
-    "d /srv/samba/photos 0775 nixos samba - -"
-    "d /srv/samba/documents 0775 nixos samba - -"
-    "d /srv/samba/backup 0775 nixos samba - -"
-
-    # メディアサーバー用ディレクトリ
-    "d /mnt/media 0755 root root - -"
-    "d /mnt/media/movies 0755 jellyfin jellyfin - -"
-    "d /mnt/media/tv 0755 jellyfin jellyfin - -"
-    "d /mnt/media/music 0755 navidrome navidrome - -"
-    "d /mnt/media/photos 0755 jellyfin jellyfin - -"
-
-    # バックアップディレクトリ
-    "d /srv/backup 0700 root root - -"
+    "d /srv/nas 0755 nixos users - -"
+    "d /srv/nas/music 0755 nixos users - -"
+    "d /srv/nas/videos 0755 nixos users - -"
+    "d /srv/nas/images 0755 nixos users - -"
+    "d /srv/nas/public 0755 nixos users - -"
   ];
 
-  ############################
-  # Samba ファイル共有サーバー
-  ############################
+  # WireGuard VPN
+  networking.wireguard.interfaces = {
+    wg0 = {
+      ips = [ "10.0.0.1/24" ];
+      listenPort = 51820;
+      privateKeyFile = "/var/lib/wireguard/private.key";
+
+      peers = [];
+    };
+  };
+
+  networking.nat = {
+    enable = true;
+    externalInterface = "ens18";
+    internalInterfaces = [ "wg0" ];
+  };
+
+  networking.firewall.allowedUDPPorts = [ 51820 ];
+
+  # Samba
   services.samba = {
     enable = true;
-    securityType = "user";
     openFirewall = true;
-
-    # Sambaパッケージの拡張機能を有効化
-    extraConfig = ''
-      workgroup = WORKGROUP
-      server string = NixOS NAS Server
-      netbios name = nixos-nas
-      security = user
-      map to guest = never
-
-      # パフォーマンス最適化
-      socket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=524288 SO_SNDBUF=524288
-      read raw = yes
-      write raw = yes
-      max xmit = 65535
-      dead time = 15
-      getwd cache = yes
-
-      # ログ設定
-      log file = /var/log/samba/log.%m
-      max log size = 50
-      log level = 1
-    '';
-
-    shares = {
-      # メディアファイル共有（読み書き可能）
-      media = {
-        path = "/srv/samba/media";
-        browseable = "yes";
-        writable = "yes";
-        "valid users" = "nixos mtdnot";
-        "create mask" = "0664";
-        "directory mask" = "0775";
-        comment = "Media files (videos, movies, TV shows)";
+    package = pkgs.samba4Full;
+    settings = {
+      global = {
+        "workgroup" = "WORKGROUP";
+        "server string" = "nixos-nas";
+        "netbios name" = "nixos-nas";
+        "security" = "user";
+        "map to guest" = "bad user";
       };
 
-      # 音楽ファイル共有
       music = {
-        path = "/srv/samba/music";
-        browseable = "yes";
-        writable = "yes";
-        "valid users" = "nixos mtdnot";
-        "create mask" = "0664";
-        "directory mask" = "0775";
-        comment = "Music library";
-      };
-
-      # 写真共有
-      photos = {
-        path = "/srv/samba/photos";
-        browseable = "yes";
-        writable = "yes";
-        "valid users" = "nixos mtdnot";
-        "create mask" = "0664";
-        "directory mask" = "0775";
-        comment = "Photo collection";
-      };
-
-      # ドキュメント共有
-      documents = {
-        path = "/srv/samba/documents";
-        browseable = "yes";
-        writable = "yes";
-        "valid users" = "nixos mtdnot";
-        "create mask" = "0664";
-        "directory mask" = "0775";
-        comment = "Document storage";
-      };
-
-      # バックアップ専用（管理者のみアクセス可能）
-      backup = {
-        path = "/srv/backup";
-        browseable = "no";
-        writable = "yes";
+        "path" = "/srv/nas/music";
+        "browseable" = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
         "valid users" = "nixos";
-        "create mask" = "0600";
-        "directory mask" = "0700";
-        comment = "Backup storage (admin only)";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
+
+      videos = {
+        "path" = "/srv/nas/videos";
+        "browseable" = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
+        "valid users" = "nixos";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
+
+      images = {
+        "path" = "/srv/nas/images";
+        "browseable" = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
+        "valid users" = "nixos";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
+
+      public = {
+        "path" = "/srv/nas/public";
+        "browseable" = "yes";
+        "read only" = "no";
+        "guest ok" = "yes";
+        "create mask" = "0644";
+        "directory mask" = "0755";
       };
     };
   };
 
-  # Sambaユーザーパスワード設定の注意書き
-  # sudo smbpasswd -a nixos
-  # sudo smbpasswd -a mtdnot
+  services.samba-wsdd = {
+    enable = true;
+    openFirewall = true;
+  };
 
-  ############################
-  # Navidrome 音楽ストリーミング
-  ############################
+  services.avahi = {
+    enable = true;
+    openFirewall = true;
+    publish.enable = true;
+    publish.userServices = true;
+    nssmdns4 = true;
+  };
+
   services.navidrome = {
     enable = true;
-
     settings = {
-      # 基本設定
+      MusicFolder = "/srv/nas/music";
+      DataFolder = "/var/lib/navidrome";
       Address = "0.0.0.0";
       Port = 4533;
-
-      # 音楽ライブラリのパス
-      MusicFolder = "/mnt/media/music";
-
-      # データディレクトリ
-      DataFolder = "/var/lib/navidrome";
-
-      # ログレベル
-      LogLevel = "info";
-
-      # スキャン間隔（秒）
-      ScanSchedule = "@every 1h";
-
-      # トランスコーディング設定
-      TranscodingCacheSize = "100MB";
-
-      # UI設定
-      UIWelcomeMessage = "Welcome to NixOS NAS Music Server";
-
-      # 外部アクセス用（Cloudflare Tunnel経由を想定）
-      BaseURL = "";
+      EnableSharing = false;
     };
   };
 
-  ############################
-  # Jellyfin メディアサーバー
-  ############################
+  systemd.services.navidrome.serviceConfig = {
+    BindReadOnlyPaths = [ "/srv/nas/music" ];
+  };
+
   services.jellyfin = {
     enable = true;
     openFirewall = true;
-
-    # Jellyfinユーザーをvideoグループに追加（ハードウェアアクセラレーション用）
-    user = "jellyfin";
-    group = "jellyfin";
+    user = "nixos";
   };
 
-  # Jellyfinのポート: 8096 (HTTP), 8920 (HTTPS)
+  networking.firewall.enable = true;
 
-  ############################
-  # ファイアウォール設定
-  ############################
-  networking.firewall = {
-    enable = true;
-
-    allowedTCPPorts = [
-      22      # SSH
-      80      # HTTP
-      139     # Samba
-      445     # Samba
-      4533    # Navidrome
-      8096    # Jellyfin HTTP
-      8920    # Jellyfin HTTPS
-    ];
-
-    allowedUDPPorts = [
-      137     # Samba
-      138     # Samba
-      1900    # Jellyfin service discovery
-      7359    # Jellyfin client discovery
-    ];
-  };
-
-  ############################
-  # システムパッケージ
-  ############################
   environment.systemPackages = with pkgs; [
-    # ファイルシステム管理
-    cifs-utils
-    nfs-utils
-    e2fsprogs
-    ntfs3g
-    exfat
-
-    # メディア管理ツール
-    ffmpeg
-    mediainfo
-
-    # Samba関連
-    samba
-
-    # ネットワークツール
-    wget
-    curl
-    rsync
-
-    # 監視・管理
+    tmux
     htop
     iotop
-    ncdu
-
-    # Cloudflare Tunnel（外部アクセス用）
-    cloudflared
+    vim
+    git
+    wget
+    curl
+    jellyfin
+    jellyfin-web
+    jellyfin-ffmpeg
+    wireguard-tools
   ];
 
-  ############################
-  # SSH サーバー設定
-  ############################
-  services.openssh = {
-    enable = true;
-    settings = {
-      PermitRootLogin = "no";
-      PasswordAuthentication = true;
-      PubkeyAuthentication = true;
-    };
-  };
-
-  ############################
-  # 自動バックアップ設定（オプション）
-  ############################
-  # systemd.services.nas-backup = {
-  #   description = "NAS data backup";
-  #   serviceConfig = {
-  #     Type = "oneshot";
-  #     ExecStart = "${pkgs.rsync}/bin/rsync -av --delete /srv/samba/ /srv/backup/";
-  #   };
-  # };
-  #
-  # systemd.timers.nas-backup = {
-  #   wantedBy = [ "timers.target" ];
-  #   timerConfig = {
-  #     OnCalendar = "daily";
-  #     Persistent = true;
-  #   };
-  # };
-
-  ############################
-  # システムバージョン
-  ############################
   system.stateVersion = "24.11";
 }
