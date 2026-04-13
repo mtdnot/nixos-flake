@@ -84,11 +84,11 @@
   programs.nix-ld.enable = true;
   virtualisation.docker.enable = true;
   nixpkgs.config.allowUnfree = true;
+
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   environment.systemPackages = with pkgs; [ cifs-utils chromium ];
   services.openssh.enable = true;
   networking.firewall.allowedTCPPorts = [ 18791 18792 18793 ];
-
 
   users.users.natsu = {
     isNormalUser = true;

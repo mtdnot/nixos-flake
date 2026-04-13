@@ -121,7 +121,9 @@
     nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
     nixosConfigurations.nixos-agent = mkNixosWithAgentUnstable ./hosts/nixos-agent/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
-    nixosConfigurations.nixos-nas = mkNixos ./hosts/nixos-nas/configuration.nix;
+    # NAS: LAN 固定 IP・Kea/Unbound 等は hosts/nas（deploy の #nas 用エイリアスも同じ構成）
+    nixosConfigurations.nixos-nas = mkNixos ./hosts/nas/configuration.nix;
+    nixosConfigurations.nas = mkNixos ./hosts/nas/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {
       system = "aarch64-darwin";
