@@ -18,7 +18,7 @@
     enableDiagrams = false;        # 必要に応じて有効化
     enablePresentations = false;   # 必要に応じて有効化
     extraPackages = [
-      # 必要に応じて追加: "amsmath" "graphics" "hyperref" など
+      "pdfpages"
     ];
   };
 

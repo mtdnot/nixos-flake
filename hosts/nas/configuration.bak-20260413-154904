@@ -1,13 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  imports = [
-    ./hardware-configuration.nix
-    ./dhcp-dns.nix
-    ./vault.nix
-    ./vault-autounseal.nix
-    ./couchdb.nix
-  ];
+  imports = [ ./hardware-configuration.nix ./dhcp-dns.nix ];
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -50,13 +44,7 @@
       listenPort = 51820;
       privateKeyFile = "/var/lib/wireguard/private.key";
       
-      peers = [
-        {
-          # mac
-          publicKey = "EyfI26iILGXQLh4izJs6vdrAHBzzAVDdFMdU1Jl3oQU=";
-          allowedIPs = [ "10.0.0.2/32" ];
-        }
-      ];
+      peers = [];
     };
   };
 
@@ -160,8 +148,6 @@
   networking.firewall.enable = true;
 
   environment.systemPackages = with pkgs; [
-    beets
-    ffmpeg
     tmux
     htop
     iotop
@@ -181,7 +167,72 @@
 
   # Kea DHCP Server
 
-  # Kea DHCP Server / DNS は ./dhcp-dns.nix に集約
+  # Open DHCP ports
+
+
+  # Kea DHCP Server
+  services.kea = {
+    dhcp4 = {
+      enable = true;
+      settings = {
+        interfaces-config = {
+          interfaces = [ "ens18" ];
+          dhcp-socket-type = "raw";
+        };
+        lease-database = {
+          type = "memfile";
+          persist = true;
+          name = "/var/lib/kea/dhcp4.leases";
+        };
+        subnet4 = [
+          {
+            id = 1;
+            subnet = "192.168.11.0/24";
+            pools = [
+              {
+                pool = "192.168.11.103 - 192.168.11.200";  # 103から開始（100-102は予約用）
+              }
+            ];
+            option-data = [
+              {
+                name = "routers";
+                data = "192.168.11.1";
+              }
+              {
+                name = "domain-name-servers";
+                data = "192.168.11.12";  # 自身のDNSサーバーを使用
+              }
+              {
+                name = "domain-name";
+                data = "local.lan";
+              }
+            ];
+            valid-lifetime = 86400;
+            # 固定IP予約
+            reservations = [
+              {
+                hw-address = "BC:24:11:EF:D7:96";
+                ip-address = "192.168.11.10";
+              }
+              {
+                hw-address = "2C:CF:67:28:79:6E";
+                ip-address = "192.168.11.100";
+              }
+              {
+                hw-address = "A8:A1:59:E5:C6:5E";
+                ip-address = "192.168.11.101";
+              }
+              {
+                hw-address = "A8:60:B6:13:0C:A0";
+                ip-address = "192.168.11.102";
+              }
+            ];
+          }
+        ];
+      };
+    };
+  };
+
 
   # mtdnotユーザー（必要に応じて）
   users.users.mtdnot = {
@@ -193,36 +244,4 @@
     ];
   };
   users.groups.mtdnot = {};
-
-  # flake mkNixos の home-manager.users と対応させる（未定義だと HM が /var/empty と衝突）
-  users.users.agent = {
-    isNormalUser = true;
-    home = "/home/agent";
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-  };
-  users.users.anag = {
-    isNormalUser = true;
-    home = "/home/anag";
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-  };
-  users.users.rf = {
-    isNormalUser = true;
-    home = "/home/rf";
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-  };
-  users.users.zli = {
-    isNormalUser = true;
-    home = "/home/zli";
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-  };
-  users.users.natsu = {
-    isNormalUser = true;
-    home = "/home/natsu";
-    extraGroups = [ "wheel" ];
-    hashedPassword = "!";
-  };
 }

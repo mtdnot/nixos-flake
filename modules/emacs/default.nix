@@ -509,9 +509,7 @@
   # nodePackages.* は nodejs-20 依存のため除外し、npm global で管理する
   # npm i -g pnpm yarn typescript typescript-language-server eslint prettier nodemon ts-node
   home.packages = with pkgs; [
-    # 【テスト6】Nerd Fontを追加
-    (nerd-fonts.jetbrains-mono)
-    (nerd-fonts.fira-code)
+    (nerdfonts.override { fonts = [ "JetBrainsMono" "FiraCode" ]; })
 
     # 【テスト7】日本語フォントも追加
     noto-fonts-cjk-sans
