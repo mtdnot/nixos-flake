@@ -6,6 +6,19 @@
     ./hardware-configuration.nix
   ];
 
+  # ホスト名
+  networking.hostName = "old-pc";
+
+  # SSH
+  services.openssh = {
+    enable = true;
+    settings = {
+      PermitRootLogin = "yes";
+      PasswordAuthentication = true;
+      PubkeyAuthentication = true;
+    };
+  };
+
   # Nix コマンド / flake 有効化
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
