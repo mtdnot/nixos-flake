@@ -1,338 +1,100 @@
-{ config, lib, pkgs, unstablePkgs, ... }:
+{ config, pkgs, ... }:
 
 {
-  # ハードウェア設定を import
   imports = [
+    ../../modules/virtual-display.nix
     ./hardware-configuration.nix
+    ../../modules/openclaw
   ];
 
-  # Nix コマンド / flake 有効化
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  boot.loader.grub.enable = true;
+  boot.loader.grub.device = "/dev/sda";
+  boot.loader.grub.useOSProber = true;
 
-  # Unfree パッケージ許可
-  nixpkgs.config.allowUnfree = true;
+  networking.hostName = "nixos";
+  networking.networkmanager.enable = true;
 
-  # バイナリ互換 (glibc まわり)
-  programs.nix-ld.enable = true;
+  fileSystems."/mnt/samba" = {
+    device = "//192.168.11.19/data";
+    fsType = "cifs";
+    options = [
+      "credentials=/root/.smbcredentials"
+      "uid=1000" "gid=100"
+      "file_mode=0644" "dir_mode=0755"
+      "x-systemd.automount" "x-systemd.idle-timeout=60"
+      "x-systemd.device-timeout=10s" "x-systemd.mount-timeout=10s"
+    ];
+  };
 
-  # ロケール・タイムゾーン
   time.timeZone = "Asia/Tokyo";
   i18n.defaultLocale = "ja_JP.UTF-8";
 
-  # IME 設定
-  i18n.inputMethod = {
-    type = "fcitx5";
-    enable = true;
-    fcitx5 = {
-      addons = with pkgs; [
-        fcitx5-mozc
-        fcitx5-gtk
-      ];
-    };
-  };
-
-  # フォント設定
-  fonts = {
-    packages = with pkgs; [
-      # HackGen NF
-      (pkgs.fetchzip {
-        url = "https://github.com/yuru7/HackGen/releases/download/v2.9.0/HackGen_NF_v2.9.0.zip";
-        hash = "sha256-Lh4WQJjeP4JuR8jSXpRNSrjRsNPmNXSx5AItNYMJL2A=";
-      })
-      noto-fonts-cjk-serif
-      noto-fonts-cjk-sans
-      noto-fonts-emoji
-      (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
-    ];
-
-    fontDir.enable = true;
-
-    fontconfig = {
-      defaultFonts = {
-        serif = [ "Noto Serif CJK JP" "Noto Color Emoji" ];
-        sansSerif = [ "Noto Sans CJK JP" "Noto Color Emoji" ];
-        monospace = [ "HackGen Console NF" "JetBrainsMono Nerd Font" "Noto Color Emoji" ];
-        emoji = [ "Noto Color Emoji" ];
-      };
-    };
-  };
-
-  # sudo 設定
-  security.sudo.extraRules = [
-    {
-      users = ["fixus"];
-      commands = [
-        {
-          command = "ALL";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
-
-  # OBS Studio
-  programs.obs-studio = {
-    enable = true;
-    plugins = with pkgs.obs-studio-plugins; [
-      wlrobs
-      obs-backgroundremoval
-      obs-pipewire-audio-capture
-    ];
-  };
-
-  # ブートローダ
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
-  # ネットワーク設定
-  networking.wireless.enable = true;
-  networking.wireless.userControlled.enable = true;
-  networking.useDHCP = true;
-  networking.networkmanager.enable = true;
-
-  # wpa_supplicant 設定ファイル
-  environment.etc."wpa_supplicant/ains-wifi.conf".text = ''
-    network={
-      ssid="ains-wifi"
-      key_mgmt=WPA-EAP
-      eap=PEAP
-      identity="s1330019"
-      password="agequodagis7010"
-      phase2="auth=MSCHAPV2"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/aioi-wifi.conf".text = ''
-    network={
-      ssid="TP-Link_CCE4_5G"
-      psk="84968579"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/licia-wifi.conf".text = ''
-    network={
-      ssid="licia-seminar2"
-      psk="seminar11510"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/aquos-wifi.conf".text = ''
-    network={
-      ssid="AQUOS sense3"
-      psk="12345678"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/jagura-wifi.conf".text = ''
-    network={
-      ssid="elecom-30fb2f"
-      psk="2c3ahw8k4hyv"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/onyado-toho.conf".text = ''
-    network={
-      ssid="onyado-toho"
-      psk="toho1960"
-    }
-  '';
-
-  environment.etc."wpa_supplicant/home-wifi.conf".text = ''
-    network={
-      ssid="Buffalo-A-2E60"
-      psk="aghg35fykvg6n"
-    }
-  '';
-
-  # wpa_supplicant systemd サービス
-  systemd.services.wpa_supplicant-ains-wifi = {
-    description = "WPA Supplicant for ains-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/ains-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-home-wifi = {
-    description = "WPA Supplicant for home-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/home-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-aquos-wifi = {
-    description = "WPA Supplicant for aquos-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/home-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-licia-wifi = {
-    description = "WPA Supplicant for licia-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/licia-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-jagura-wifi = {
-    description = "WPA Supplicant for jagura-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/jagura-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-aioi-wifi = {
-    description = "WPA Supplicant for aioi-wifi";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/aioi-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  systemd.services.wpa_supplicant-onyado-toho = {
-    description = "WPA Supplicant for onyado-toho";
-    wantedBy = ["multi-user.target"];
-    after = ["network.target"];
-    serviceConfig = {
-      ExecStart = "/run/current-system/sw/sbin/wpa_supplicant -i wlp5s0 -c /etc/wpa_supplicant/onyado-toho-wifi.conf";
-      Restart = "always";
-    };
-  };
-
-  # ディスプレイマネージャー
-  services.xserver.displayManager = {
-    lightdm.enable = true;
-  };
-
-  services.xserver.displayManager.lightdm.greeters.gtk = {
-    enable = true;
-    theme.name = "Materia-dark";
-    iconTheme.name = "Papirus-Dark";
-    cursorTheme.name = "Breeze_Snow";
-    extraConfig = ''
-      background = /etc/nixos/assets/chirno_nix_desktop.png
-      font-name = "Noto Sans Bold 11"
-    '';
-  };
-
-  services.xserver.displayManager.lightdm.greeters.slick = {
-    enable = false;
-  };
-
-  # VirtualBox
-  virtualisation.virtualbox.host.enable = true;
-
-  # 1Password
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "1password"
-    "1password-gui"
-  ];
-
-  programs._1password.enable = true;
-
-  programs._1password-gui = {
-    enable = true;
-    polkitPolicyOwners = ["fixus"];
-  };
-
-  # Hyprland
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
-
-  # XDG Desktop Portal for Hyprland
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-  };
-
-  # X server 有効化
   services.xserver.enable = true;
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
+  services.xserver.xkb = { layout = "jp"; variant = ""; };
+  services.printing.enable = true;
+  security.rtkit.enable = true;
 
-  # ユーザー定義
-  users.users.fixus = {
-    isNormalUser = true;
-    extraGroups = ["wheel" "networkmanager" "vboxusers"];
-    packages = with pkgs; [
-      firefox
-      kitty
-      waybar
-    ];
-    shell = pkgs.bash;
+  security.sudo.extraConfig = "Defaults:mtdnot !requiretty";
+  security.sudo.extraRules = [
+    { users = [ "mtdnot" ]; commands = [{ command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild"; options = [ "NOPASSWD" ]; }]; }
+    { users = [ "agent" ]; commands = [{ command = "ALL"; options = [ "NOPASSWD" ]; }]; }
+  ];
+
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
   };
 
   users.users.mtdnot = {
     isNormalUser = true;
-    home = "/home/mtdnot";
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
+    description = "mtdnot";
+    extraGroups = [ "networkmanager" "wheel" ];
+    packages = with pkgs; [ kdePackages.kate ];
   };
 
-  # システムパッケージ
-  environment.systemPackages = with pkgs; [
-    waybar
-    wl-clipboard
-    hyprpaper
-    firefox
-    kitty
-    emacs-pgtk
-    unzip
-    git
-    eog
-    wofi
-    pandoc
-    libgcc
-    brightnessctl
-    nodejs
-    zoxide
-    grim
-    slurp
-    swappy
-    htop
-    glances
-    gotop
-    cmatrix
-    neofetch
-    tmux
-    obsidian
-    google-chrome
-    vscode
-    thunderbird
-    steam-run
-    sshfs
-    rclone
-    zsh
-    gh
-    mise
-    stow
-    claude-code
-    fcitx5
-    fcitx5-mozc
-    fcitx5-gtk
-    qt6.qtbase
-  ] ++ [
-    # unstablePkgs から windsurf を追加
-    unstablePkgs.windsurf
-  ];
+  users.users.agent = {
+    isNormalUser = true;
+    description = "AI agent operator";
+    extraGroups = [ "wheel" "networkmanager" "docker" ];
+  };
 
-  # Steam
-  programs.steam.enable = true;
+  users.users.anag = {
+    isNormalUser = true;
+    description = "ANAG - 電離圏研究";
+    extraGroups = [ "wheel" ];
+  };
 
-  system.stateVersion = "24.11";
+  users.users.rf = {
+    isNormalUser = true;
+    description = "Refixa - 自動化基盤";
+    extraGroups = [ "wheel" ];
+  };
+
+  users.users.zli = {
+    isNormalUser = true;
+    description = "ZLI - サークル運営";
+    extraGroups = [ "wheel" ];
+  };
+
+  programs.firefox.enable = true;
+  programs.nix-ld.enable = true;
+  virtualisation.docker.enable = true;
+  nixpkgs.config.allowUnfree = true;
+
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  environment.systemPackages = with pkgs; [ cifs-utils chromium ];
+  services.openssh.enable = true;
+  networking.firewall.allowedTCPPorts = [ 18791 18792 18793 ];
+
+  users.users.natsu = {
+    isNormalUser = true;
+    description = "natsu - 日常・人を繋ぐ";
+    extraGroups = [ "wheel" ];
+  };
+
+  system.stateVersion = "25.05";
 }

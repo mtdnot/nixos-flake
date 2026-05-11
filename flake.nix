@@ -94,6 +94,7 @@
     ## Hosts
     ########################################
     nixosConfigurations.nixos-gui = mkNixos ./hosts/nixos-gui/configuration.nix;
+    nixosConfigurations.old-pc = mkNixos ./hosts/old-pc/configuration.nix;
     nixosConfigurations.nixos-cui = mkNixos ./hosts/nixos-cui/configuration.nix;
 
     darwinConfigurations.mac = darwin.lib.darwinSystem {
