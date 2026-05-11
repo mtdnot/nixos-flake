@@ -4,7 +4,7 @@
   # Kea DHCP Server
   services.kea = {
     dhcp4 = {
-      enable = true;
+      enable = false;
       settings = {
         interfaces-config = {
           interfaces = [ "ens18" ];
@@ -65,7 +65,7 @@
 
   # DNS Server (dnsmasq)
   services.dnsmasq = {
-    enable = true;
+    enable = false;
     settings = {
       local = "/local.lan/";
       domain = "local.lan";
