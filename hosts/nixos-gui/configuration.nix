@@ -22,7 +22,7 @@
   # IME 設定
   i18n.inputMethod = {
     type = "fcitx5";
-    enable = false;
+    enable = true;
     fcitx5 = {
       addons = with pkgs; [
         fcitx5-mozc
@@ -252,7 +252,16 @@
   };
 
   # Hyprland
-  programs.hyprland.enable = true;
+  programs.hyprland = {
+    enable = true;
+    xwayland.enable = true;
+  };
+
+  # XDG Desktop Portal for Hyprland
+  xdg.portal = {
+    enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+  };
 
   # X server 有効化
   services.xserver.enable = true;
