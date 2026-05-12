@@ -17,6 +17,24 @@
       PasswordAuthentication = true;
       PubkeyAuthentication = true;
     };
+    openFirewall = true;
+  };
+
+  # Cloudflare Tunnel (トークンは /etc/cloudflared-token に手動配置)
+  systemd.services.cloudflared-tunnel = {
+    description = "Cloudflare Tunnel for SSH";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "notify";
+      Restart = "always";
+      RestartSec = "10s";
+      ExecStart = "${pkgs.cloudflared}/bin/cloudflared tunnel --no-autoupdate run --token \${TUNNEL_TOKEN}";
+      EnvironmentFile = "/etc/cloudflared-token";
+      DynamicUser = true;
+      NoNewPrivileges = true;
+    };
   };
 
   # Nix コマンド / flake 有効化
