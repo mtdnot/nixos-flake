@@ -49,7 +49,7 @@
       Type = "notify";
       Restart = "always";
       RestartSec = "10s";
-      ExecStart = "${pkgs.cloudflared}/bin/cloudflared tunnel --no-autoupdate run --token \${TUNNEL_TOKEN} --url ssh://localhost:22";
+      ExecStart = "${unstablePkgs.cloudflared}/bin/cloudflared tunnel --no-autoupdate run --token \${TUNNEL_TOKEN} --url ssh://localhost:22";
       EnvironmentFile = "/etc/cloudflared-token";
     };
   };
