@@ -5,6 +5,7 @@
     ../../modules/virtual-display.nix
     ./hardware-configuration.nix
     ../../modules/openclaw
+    ../../modules/nixos/users-home.nix
   ];
 
   boot.loader.grub.enable = true;

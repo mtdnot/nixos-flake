@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ../../modules/nixos/users-home.nix
     ./hardware-configuration.nix
     ./dhcp-dns.nix
     ./vault.nix
