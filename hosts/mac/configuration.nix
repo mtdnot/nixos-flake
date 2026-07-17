@@ -15,13 +15,17 @@
   };
   
   # Store optimization (macOS safe version)
-  nix.optimise.automatic = true;
+  nix.optimise = {
+    automatic = true;
+    user = "mtdnot";  # Run optimise as user, not root
+  };
 
   # Garbage collection
   nix.gc = {
     automatic = true;
     interval = { Weekday = 7; };  # 毎週日曜日
     options = "--delete-older-than 30d";
+    user = "mtdnot";  # Run gc as user, not root
   };
 
   # Set Git commit hash for darwin-version.
